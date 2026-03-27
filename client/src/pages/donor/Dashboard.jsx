@@ -16,13 +16,18 @@ function Dashboard() {
     });
     const [myDonations, setMyDonations] = useState([]);
     const [ngoRequests, setNgoRequests] = useState([]);
+    const [dashboardStats, setDashboardStats] = useState({
+        totalDonations: 0,
+        totalMeals: 0,
+        ngosHelped: 0
+    });
+    const [recentActivity, setRecentActivity] = useState([]);
     const [profileData, setProfileData] = useState({
-        name: "Donor User",
-        role: "Food Donor",
-        phone: "+1 234 567 8900",
-        address: "123 Kindness Street, City",
-        email: "donor@example.com",
-        password: "password123"
+        name: "",
+        role: "",
+        phone: "",
+        address: "",
+        email: "",
     });
 
     const handleProfileChange = (e) => {
@@ -37,21 +42,34 @@ function Dashboard() {
                 headers: { Authorization: `Bearer ${token}` }
             });
             const userData = res.data.user;
-            setProfileData(prev => ({ 
-                ...prev, 
-                name: userData.name, 
-                email: userData.email, 
-                role: userData.role, 
-                phone: userData.phone || "", 
-                address: userData.address || "" 
-            }));
+            setProfileData({
+                name: userData.name || "",
+                email: userData.email || "",
+                role: userData.role || "",
+                phone: userData.phone || "",
+                address: userData.address || "",
+            });
         } catch(e) {
             console.error("Failed to fetch profile", e);
         }
     };
 
+    const fetchDashboardStats = async () => {
+        try {
+            const token = localStorage.getItem("token");
+            const res = await axios.get("http://localhost:8000/api/donor/dashboard-stats", {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            setDashboardStats(res.data.stats);
+            setRecentActivity(res.data.recentActivity || []);
+        } catch (e) {
+            console.error("Failed to fetch dashboard stats", e);
+        }
+    };
+
     useEffect(() => {
         fetchProfile();
+        fetchDashboardStats();
     }, []);
 
     useEffect(() => {
@@ -59,6 +77,8 @@ function Dashboard() {
             fetchMyDonations();
         } else if (activeTab === 'requests') {
             fetchNgoRequests();
+        } else if (activeTab === 'dashboard') {
+            fetchDashboardStats();
         }
     }, [activeTab]);
 
@@ -85,13 +105,20 @@ function Dashboard() {
     const handleProfileSave = async () => {
         try {
             const token = localStorage.getItem("token");
-            await axios.put("http://localhost:8000/api/profile", {
+            const res = await axios.put("http://localhost:8000/api/profile", {
                 name: profileData.name,
                 phone: profileData.phone,
                 address: profileData.address
             }, {
                 headers: { Authorization: `Bearer ${token}` }
             });
+            const updated = res.data.user;
+            setProfileData(prev => ({
+                ...prev,
+                name: updated.name,
+                phone: updated.phone || "",
+                address: updated.address || "",
+            }));
             alert("Profile updated successfully!");
             setIsEditingProfile(false);
         } catch(e) {
@@ -133,6 +160,131 @@ function Dashboard() {
         }
     };
 
+    // ─── Fulfill NGO Request ─────────────
+    const handleFulfillRequest = async (id) => {
+        try {
+            const token = localStorage.getItem("token");
+            await axios.patch(`http://localhost:8000/api/donor/fulfill-request/${id}`, {}, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            // Update local state immediately
+            setNgoRequests(prev =>
+                prev.map(r => r.id === id ? { ...r, status: "ACCEPTED" } : r)
+            );
+        } catch (e) {
+            console.error(e);
+            alert("Failed to fulfill request");
+        }
+    };
+
+    // ─── Update own donation status ─────────────
+    const handleUpdateDonationStatus = async (id, newStatus) => {
+        try {
+            const token = localStorage.getItem("token");
+            await axios.patch(`http://localhost:8000/api/donor/donation-status/${id}`, 
+                { status: newStatus },
+                { headers: { Authorization: `Bearer ${token}` } }
+            );
+            setMyDonations(prev =>
+                prev.map(d => d.id === id ? { ...d, status: newStatus } : d)
+            );
+        } catch (e) {
+            console.error(e);
+            alert("Failed to update donation status");
+        }
+    };
+
+    // ─── Helpers ─────────────
+    const timeAgo = (dateStr) => {
+        const now = new Date();
+        const past = new Date(dateStr);
+        const diffMs = now - past;
+        const diffMins = Math.floor(diffMs / 60000);
+        if (diffMins < 1) return "Just now";
+        if (diffMins < 60) return `${diffMins} min ago`;
+        const diffHrs = Math.floor(diffMins / 60);
+        if (diffHrs < 24) return `${diffHrs} hr${diffHrs > 1 ? 's' : ''} ago`;
+        const diffDays = Math.floor(diffHrs / 24);
+        if (diffDays < 7) return `${diffDays} day${diffDays > 1 ? 's' : ''} ago`;
+        return past.toLocaleDateString();
+    };
+
+    const statusClass = (status) => {
+        switch (status) {
+            case "PENDING": return "pending";
+            case "ACCEPTED": return "accepted";
+            case "PICKED_UP": return "pickedup";
+            case "COMPLETED": return "completed";
+            default: return "";
+        }
+    };
+
+    const urgencyLabel = (u) => {
+        if (u === "High") return "🔴 High";
+        if (u === "Medium") return "🟡 Medium";
+        return "🟢 Low";
+    };
+
+    // Context-aware action buttons for NGO requests
+    const renderNgoRequestActions = (req) => {
+        switch (req.status) {
+            case "PENDING":
+                return (
+                    <button className="action-btn primary small" style={{marginTop:'0.5rem'}} onClick={() => handleFulfillRequest(req.id)}>
+                        🤝 Fulfill Request
+                    </button>
+                );
+            case "ACCEPTED":
+                return (
+                    <div style={{ marginTop: '0.5rem' }}>
+                        <span style={{ color: '#6A9C89', fontWeight: '600', fontSize: '0.9rem' }}>✅ Fulfilled by you</span>
+                    </div>
+                );
+            case "COMPLETED":
+                return (
+                    <div style={{ marginTop: '0.5rem' }}>
+                        <span style={{ color: '#16423C', fontWeight: '600', fontSize: '0.9rem' }}>✔️ Completed</span>
+                    </div>
+                );
+            default:
+                return null;
+        }
+    };
+
+    // Context-aware action buttons for own donations
+    const renderDonationActions = (don) => {
+        switch (don.status) {
+            case "PENDING":
+                return (
+                    <div style={{ display: 'flex', gap: '0.8rem', marginTop: '0.5rem' }}>
+                        <button className="action-btn secondary small" onClick={() => handleUpdateDonationStatus(don.id, "COMPLETED")}>
+                            ❌ Cancel
+                        </button>
+                    </div>
+                );
+            case "ACCEPTED":
+                return (
+                    <div style={{ marginTop: '0.5rem' }}>
+                        <span style={{ color: '#6A9C89', fontWeight: '600', fontSize: '0.9rem' }}>✅ Accepted by NGO</span>
+                    </div>
+                );
+            case "PICKED_UP":
+                return (
+                    <div style={{ marginTop: '0.5rem' }}>
+                        <span style={{ color: '#e0a800', fontWeight: '600', fontSize: '0.9rem' }}>🚚 Picked Up</span>
+                    </div>
+                );
+            case "COMPLETED":
+                return (
+                    <div style={{ marginTop: '0.5rem' }}>
+                        <span style={{ color: '#16423C', fontWeight: '600', fontSize: '0.9rem' }}>✔️ Completed</span>
+                    </div>
+                );
+            default:
+                return null;
+        }
+    };
+
     return (
         <div className="donor-dashboard-container">
             <aside className="donor-sidebar">
@@ -151,7 +303,7 @@ function Dashboard() {
                             My Donations
                         </a>
                         <a className={activeTab === 'requests' ? 'active' : ''} onClick={() => setActiveTab('requests')}>
-                            Requests
+                            NGO Requests
                         </a>
                     </nav>
                 </div>
@@ -161,10 +313,9 @@ function Dashboard() {
                         <a className={activeTab === 'profile' ? 'active' : ''} onClick={() => setActiveTab('profile')}>
                             <i className="icon">👤</i> Profile
                         </a>
-
                     </nav>
                     <div className="user-info">
-                        <div className="avatar">D</div>
+                        <div className="avatar">{profileData.name?.charAt(0)?.toUpperCase() || "D"}</div>
                         <div className="user-details">
                             <p className="user-name">{profileData.name}</p>
                             <p className="user-role">{profileData.role}</p>
@@ -183,6 +334,7 @@ function Dashboard() {
                 </header>
 
                 <div className="dashboard-scrollable-content">
+                    {/* ─── DASHBOARD TAB ─── */}
                     {activeTab === 'dashboard' && (
                         <div className="tab-content fade-in">
                             <div className="stats-grid">
@@ -190,21 +342,21 @@ function Dashboard() {
                                     <div className="stat-icon purple">🍽️</div>
                                     <div className="stat-info">
                                         <h3>Meals Provided</h3>
-                                        <p className="stat-number">1,204</p>
+                                        <p className="stat-number">{dashboardStats.totalMeals.toLocaleString()}</p>
                                     </div>
                                 </div>
                                 <div className="stat-card">
                                     <div className="stat-icon blue">📦</div>
                                     <div className="stat-info">
                                         <h3>Total Donations</h3>
-                                        <p className="stat-number">42</p>
+                                        <p className="stat-number">{dashboardStats.totalDonations}</p>
                                     </div>
                                 </div>
                                 <div className="stat-card">
-                                    <div className="stat-icon pink">⭐</div>
+                                    <div className="stat-icon pink">🤝</div>
                                     <div className="stat-info">
-                                        <h3>Impact Score</h3>
-                                        <p className="stat-number">850</p>
+                                        <h3>NGOs Helped</h3>
+                                        <p className="stat-number">{dashboardStats.ngosHelped}</p>
                                     </div>
                                 </div>
                             </div>
@@ -213,26 +365,24 @@ function Dashboard() {
                                 <div className="recent-activity section-card">
                                     <div className="section-header">
                                         <h2>Recent Activity</h2>
-                                        <button className="view-all-btn">View All</button>
+                                        <button className="view-all-btn" onClick={() => setActiveTab('mydonations')}>View All</button>
                                     </div>
-                                    <ul className="activity-list">
-                                        <li className="activity-item">
-                                            <div className="activity-dot"></div>
-                                            <div className="activity-details">
-                                                <p className="activity-title">Donated 50 Meals to Hope NGO</p>
-                                                <p className="activity-time">2 hours ago</p>
-                                            </div>
-                                            <span className="status completed">Completed</span>
-                                        </li>
-                                        <li className="activity-item">
-                                            <div className="activity-dot pending"></div>
-                                            <div className="activity-details">
-                                                <p className="activity-title">Scheduled Pickup for Clothes</p>
-                                                <p className="activity-time">Yesterday</p>
-                                            </div>
-                                            <span className="status pending">Pending</span>
-                                        </li>
-                                    </ul>
+                                    {recentActivity.length === 0 ? (
+                                        <p className="placeholder-text">No activity yet. Create your first donation!</p>
+                                    ) : (
+                                        <ul className="activity-list">
+                                            {recentActivity.map(item => (
+                                                <li className="activity-item" key={item.id}>
+                                                    <div className={`activity-dot ${item.status === 'PENDING' ? 'pending' : ''}`}></div>
+                                                    <div className="activity-details">
+                                                        <p className="activity-title">{item.foodType} — {item.quantity}</p>
+                                                        <p className="activity-time">{timeAgo(item.createdAt)}</p>
+                                                    </div>
+                                                    <span className={`status ${statusClass(item.status)}`}>{item.status}</span>
+                                                </li>
+                                            ))}
+                                        </ul>
+                                    )}
                                 </div>
                                 <div className="quick-actions section-card">
                                     <h2>Quick Actions</h2>
@@ -240,14 +390,16 @@ function Dashboard() {
                                         <button className="action-btn primary" onClick={() => setActiveTab('createdonations')}>
                                             + New Donation
                                         </button>
-                                        <button className="action-btn secondary">
-                                            Browse NGOs
+                                        <button className="action-btn secondary" onClick={() => setActiveTab('requests')}>
+                                            Browse NGO Requests
                                         </button>
                                     </div>
                                 </div>
                             </div>
                         </div>
                     )}
+
+                    {/* ─── CREATE DONATION TAB ─── */}
                     {activeTab === 'createdonations' && (
                         <div className="tab-content fade-in">
                             <div className="form-card">
@@ -278,26 +430,38 @@ function Dashboard() {
                             </div>
                         </div>
                     )}
+
+                    {/* ─── MY DONATIONS TAB ─── */}
                     {activeTab === 'mydonations' && (
                         <div className="tab-content fade-in">
-                            <h2>My Donations</h2>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+                                <h2 style={{ margin: 0 }}>My Donations</h2>
+                                <button className="action-btn primary small" onClick={() => setActiveTab('createdonations')}>
+                                    + New Donation
+                                </button>
+                            </div>
                             <div className="card-list">
                                 {myDonations.length === 0 ? (
                                     <p className="placeholder-text" style={{marginTop: '1rem'}}>No donations made yet.</p>
                                 ) : (
                                     myDonations.map(don => (
                                         <div className="item-card" key={don.id}>
-                                            <h4>{don.foodType}</h4>
+                                            <h4>🍽️ {don.foodType}</h4>
                                             <p><strong>Quantity:</strong> {don.quantity}</p>
                                             <p><strong>Location:</strong> {don.location}</p>
-                                            <p><strong>Status:</strong> <span className={`status completed`}>{don.status}</span></p>
+                                            <p><strong>Description:</strong> {don.description || "—"}</p>
                                             <p><strong>Expiry:</strong> {new Date(don.expiryTime).toLocaleString()}</p>
+                                            <p><strong>Status:</strong> <span className={`status ${statusClass(don.status)}`}>{don.status}</span></p>
+                                            <p><strong>Created:</strong> {new Date(don.createdAt).toLocaleString()}</p>
+                                            {renderDonationActions(don)}
                                         </div>
                                     ))
                                 )}
                             </div>
                         </div>
                     )}
+
+                    {/* ─── NGO REQUESTS TAB ─── */}
                     {activeTab === 'requests' && (
                         <div className="tab-content fade-in">
                             <h2>NGO Requests</h2>
@@ -307,26 +471,29 @@ function Dashboard() {
                                 ) : (
                                     ngoRequests.map(req => (
                                         <div className="item-card" key={req.id}>
-                                            <h4>{req.title}</h4>
+                                            <h4>📋 {req.title}</h4>
                                             <p><strong>NGO:</strong> {req.ngoName || "Unknown NGO"}</p>
-                                            <p><strong>Description:</strong> {req.description}</p>
+                                            <p><strong>Description:</strong> {req.description || "—"}</p>
                                             <p><strong>Quantity Needed:</strong> {req.quantity}</p>
-                                            <p><strong>Urgency:</strong> {req.urgency}</p>
-                                            <button className="action-btn primary small" style={{marginTop:'0.5rem'}}>Fulfill Request</button>
+                                            <p><strong>Urgency:</strong> {urgencyLabel(req.urgency)}</p>
+                                            <p><strong>Status:</strong> <span className={`status ${statusClass(req.status)}`}>{req.status}</span></p>
+                                            {renderNgoRequestActions(req)}
                                         </div>
                                     ))
                                 )}
                             </div>
                         </div>
                     )}
+
+                    {/* ─── PROFILE TAB ─── */}
                     {activeTab === 'profile' && (
                         <div className="tab-content fade-in">
                             <div className="form-card">
                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
                                     <h2 style={{ margin: 0 }}>Profile Information</h2>
                                     {!isEditingProfile && (
-                                        <button 
-                                            className="action-btn primary small" 
+                                        <button
+                                            className="action-btn primary small"
                                             onClick={() => setIsEditingProfile(true)}
                                             style={{ margin: 0 }}
                                         >
@@ -334,7 +501,7 @@ function Dashboard() {
                                         </button>
                                     )}
                                 </div>
-                                
+
                                 {!isEditingProfile ? (
                                     <div className="profile-details" style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
                                         <div className="detail-group">
@@ -347,11 +514,11 @@ function Dashboard() {
                                         </div>
                                         <div className="detail-group">
                                             <label style={{ display: 'block', fontSize: '0.9rem', color: '#6A9C89', marginBottom: '0.3rem', fontWeight: '600' }}>Phone Number</label>
-                                            <p style={{ margin: 0, fontSize: '1.1rem', color: '#16423C' }}>{profileData.phone}</p>
+                                            <p style={{ margin: 0, fontSize: '1.1rem', color: '#16423C' }}>{profileData.phone || "Not provided"}</p>
                                         </div>
                                         <div className="detail-group">
                                             <label style={{ display: 'block', fontSize: '0.9rem', color: '#6A9C89', marginBottom: '0.3rem', fontWeight: '600' }}>Address</label>
-                                            <p style={{ margin: 0, fontSize: '1.1rem', color: '#16423C' }}>{profileData.address}</p>
+                                            <p style={{ margin: 0, fontSize: '1.1rem', color: '#16423C' }}>{profileData.address || "Not provided"}</p>
                                         </div>
                                         <div className="detail-group">
                                             <label style={{ display: 'block', fontSize: '0.9rem', color: '#6A9C89', marginBottom: '0.3rem', fontWeight: '600' }}>Email Address</label>
@@ -369,8 +536,8 @@ function Dashboard() {
                                             <input type="text" name="name" value={profileData.name} onChange={handleProfileChange} />
                                         </div>
                                         <div className="form-group">
-                                            <label>Role</label>
-                                            <input type="text" name="role" value={profileData.role} readOnly style={{backgroundColor: '#C4DAD2', cursor: 'not-allowed', color: '#6A9C89'}} />
+                                            <label>Role <span style={{fontSize:'0.8rem',color:'#999'}}>(cannot be changed)</span></label>
+                                            <input type="text" value={profileData.role} readOnly style={{backgroundColor: '#C4DAD2', cursor: 'not-allowed', color: '#6A9C89'}} />
                                         </div>
                                         <div className="form-group">
                                             <label>Phone Number</label>
@@ -381,44 +548,19 @@ function Dashboard() {
                                             <textarea name="address" value={profileData.address} onChange={handleProfileChange}></textarea>
                                         </div>
                                         <div className="form-group">
-                                            <label>Email Address</label>
-                                            <input type="email" name="email" value={profileData.email} onChange={handleProfileChange} />
+                                            <label>Email Address <span style={{fontSize:'0.8rem',color:'#999'}}>(cannot be changed)</span></label>
+                                            <input type="email" value={profileData.email} readOnly style={{backgroundColor: '#C4DAD2', cursor: 'not-allowed', color: '#6A9C89'}} />
                                         </div>
                                         <div className="form-group">
-                                            <label>Password</label>
-                                            <input type="password" name="password" value={profileData.password} onChange={handleProfileChange} />
+                                            <label>Password <span style={{fontSize:'0.8rem',color:'#999'}}>(cannot be changed)</span></label>
+                                            <input type="password" value="••••••••" readOnly style={{backgroundColor: '#C4DAD2', cursor: 'not-allowed', color: '#6A9C89'}} />
                                         </div>
                                         <div style={{ display: 'flex', gap: '1rem', marginTop: '1rem' }}>
                                             <button type="button" className="action-btn primary" onClick={handleProfileSave}>Save Changes</button>
-                                            <button type="button" className="action-btn secondary" onClick={() => setIsEditingProfile(false)}>Cancel</button>
+                                            <button type="button" className="action-btn secondary" onClick={() => { setIsEditingProfile(false); fetchProfile(); }}>Cancel</button>
                                         </div>
                                     </form>
                                 )}
-                            </div>
-                        </div>
-                    )}
-                    {activeTab === 'settings' && (
-                        <div className="tab-content fade-in">
-                            <div className="form-card">
-                                <h2>Account Settings</h2>
-                                <form className="dashboard-form">
-                                    <div className="form-group">
-                                        <label>Email Notifications</label>
-                                        <select>
-                                            <option>All notifications</option>
-                                            <option>Important only</option>
-                                            <option>None</option>
-                                        </select>
-                                    </div>
-                                    <div className="form-group">
-                                        <label>Privacy</label>
-                                        <select>
-                                            <option>Public Profile</option>
-                                            <option>Private Profile</option>
-                                        </select>
-                                    </div>
-                                    <button type="button" className="action-btn secondary">Update Settings</button>
-                                </form>
                             </div>
                         </div>
                     )}
