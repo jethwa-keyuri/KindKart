@@ -5,6 +5,24 @@ import "./Dashboard.css";
 function AdminDashboard() {
     const navigate = useNavigate();
     const [activeTab, setActiveTab] = useState("dashboard");
+    const [isEditingProfile, setIsEditingProfile] = useState(false);
+    const [profileData, setProfileData] = useState({
+        name: "System Admin",
+        role: "Admin",
+        phone: "+1 000 000 0000",
+        address: "Admin Headquarters",
+        email: "admin@kindkart.org",
+        password: "securepassword"
+    });
+
+    const handleProfileChange = (e) => {
+        const { name, value } = e.target;
+        setProfileData(prev => ({ ...prev, [name]: value }));
+    };
+
+    const handleProfileSave = () => {
+        setIsEditingProfile(false);
+    };
 
     // Mock statistics
     const stats = {
@@ -64,6 +82,11 @@ function AdminDashboard() {
                 </div>
 
                 <div className="sidebar-bottom">
+                    <nav className="menu">
+                        <a className={activeTab === 'profile' ? 'active' : ''} onClick={() => setActiveTab('profile')}>
+                            <i className="icon">👤</i> Profile
+                        </a>
+                    </nav>
                     <div className="user-info">
                         <div className="avatar admin-avatar">A</div>
                         <div className="user-details">
@@ -236,6 +259,86 @@ function AdminDashboard() {
                                             </div>
                                         </div>
                                     ))
+                                )}
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Profile Tab */}
+                    {activeTab === 'profile' && (
+                        <div className="tab-content fade-in">
+                            <div className="form-card" style={{ maxWidth: '800px', margin: '0 auto', backgroundColor: 'white', padding: '2rem', borderRadius: '12px', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+                                    <h2 style={{ margin: 0 }}>System Admin Profile</h2>
+                                    {!isEditingProfile && (
+                                        <button 
+                                            className="action-btn primary small" 
+                                            onClick={() => setIsEditingProfile(true)}
+                                            style={{ margin: 0 }}
+                                        >
+                                            Edit Profile
+                                        </button>
+                                    )}
+                                </div>
+                                
+                                {!isEditingProfile ? (
+                                    <div className="profile-details" style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+                                        <div className="detail-group">
+                                            <label style={{ display: 'block', fontSize: '0.9rem', color: '#64748b', marginBottom: '0.3rem', fontWeight: '600' }}>Full Name</label>
+                                            <p style={{ margin: 0, fontSize: '1.1rem', color: '#1e293b' }}>{profileData.name}</p>
+                                        </div>
+                                        <div className="detail-group">
+                                            <label style={{ display: 'block', fontSize: '0.9rem', color: '#64748b', marginBottom: '0.3rem', fontWeight: '600' }}>Role</label>
+                                            <p style={{ margin: 0, fontSize: '1.1rem', color: '#1e293b' }}>{profileData.role}</p>
+                                        </div>
+                                        <div className="detail-group">
+                                            <label style={{ display: 'block', fontSize: '0.9rem', color: '#64748b', marginBottom: '0.3rem', fontWeight: '600' }}>Phone Number</label>
+                                            <p style={{ margin: 0, fontSize: '1.1rem', color: '#1e293b' }}>{profileData.phone}</p>
+                                        </div>
+                                        <div className="detail-group">
+                                            <label style={{ display: 'block', fontSize: '0.9rem', color: '#64748b', marginBottom: '0.3rem', fontWeight: '600' }}>Address</label>
+                                            <p style={{ margin: 0, fontSize: '1.1rem', color: '#1e293b' }}>{profileData.address}</p>
+                                        </div>
+                                        <div className="detail-group">
+                                            <label style={{ display: 'block', fontSize: '0.9rem', color: '#64748b', marginBottom: '0.3rem', fontWeight: '600' }}>Email Address</label>
+                                            <p style={{ margin: 0, fontSize: '1.1rem', color: '#1e293b' }}>{profileData.email}</p>
+                                        </div>
+                                        <div className="detail-group">
+                                            <label style={{ display: 'block', fontSize: '0.9rem', color: '#64748b', marginBottom: '0.3rem', fontWeight: '600' }}>Password</label>
+                                            <p style={{ margin: 0, fontSize: '1.1rem', color: '#1e293b' }}>••••••••</p>
+                                        </div>
+                                    </div>
+                                ) : (
+                                    <form className="dashboard-form">
+                                        <div className="form-group" style={{ marginBottom: '1rem' }}>
+                                            <label style={{ display: 'block', marginBottom: '0.5rem' }}>Full Name</label>
+                                            <input type="text" name="name" value={profileData.name} onChange={handleProfileChange} style={{ width: '100%', padding: '0.75rem', borderRadius: '8px', border: '1px solid #e2e8f0' }} />
+                                        </div>
+                                        <div className="form-group" style={{ marginBottom: '1rem' }}>
+                                            <label style={{ display: 'block', marginBottom: '0.5rem' }}>Role</label>
+                                            <input type="text" name="role" value={profileData.role} readOnly style={{ width: '100%', padding: '0.75rem', borderRadius: '8px', border: '1px solid #e2e8f0', backgroundColor: '#f1f5f9', cursor: 'not-allowed', color: '#64748b' }} />
+                                        </div>
+                                        <div className="form-group" style={{ marginBottom: '1rem' }}>
+                                            <label style={{ display: 'block', marginBottom: '0.5rem' }}>Phone Number</label>
+                                            <input type="tel" name="phone" value={profileData.phone} onChange={handleProfileChange} style={{ width: '100%', padding: '0.75rem', borderRadius: '8px', border: '1px solid #e2e8f0' }} />
+                                        </div>
+                                        <div className="form-group" style={{ marginBottom: '1rem' }}>
+                                            <label style={{ display: 'block', marginBottom: '0.5rem' }}>Address</label>
+                                            <textarea name="address" value={profileData.address} onChange={handleProfileChange} style={{ width: '100%', padding: '0.75rem', borderRadius: '8px', border: '1px solid #e2e8f0', minHeight: '100px' }}></textarea>
+                                        </div>
+                                        <div className="form-group" style={{ marginBottom: '1rem' }}>
+                                            <label style={{ display: 'block', marginBottom: '0.5rem' }}>Email Address</label>
+                                            <input type="email" name="email" value={profileData.email} onChange={handleProfileChange} style={{ width: '100%', padding: '0.75rem', borderRadius: '8px', border: '1px solid #e2e8f0' }} />
+                                        </div>
+                                        <div className="form-group" style={{ marginBottom: '1rem' }}>
+                                            <label style={{ display: 'block', marginBottom: '0.5rem' }}>Password</label>
+                                            <input type="password" name="password" value={profileData.password} onChange={handleProfileChange} style={{ width: '100%', padding: '0.75rem', borderRadius: '8px', border: '1px solid #e2e8f0' }} />
+                                        </div>
+                                        <div style={{ display: 'flex', gap: '1rem', marginTop: '1.5rem' }}>
+                                            <button type="button" className="action-btn primary" onClick={handleProfileSave}>Save Changes</button>
+                                            <button type="button" className="action-btn secondary" onClick={() => setIsEditingProfile(false)}>Cancel</button>
+                                        </div>
+                                    </form>
                                 )}
                             </div>
                         </div>
