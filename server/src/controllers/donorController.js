@@ -1,6 +1,6 @@
 import { db } from "../db/db.js";
-import { donations, requests, users, ngoRequests } from "../db/schema.js";
-import { eq, desc, count, countDistinct } from "drizzle-orm";
+import { donations, requests, users, ngoRequests, ratings } from "../db/schema.js";
+import { eq, desc, count, countDistinct, and, sql, avg } from "drizzle-orm";
 
 export const createDonation = async (req, res) => {
   try {
@@ -189,6 +189,138 @@ export const getDashboardStats = async (req, res) => {
       },
       recentActivity: recentDonations
     });
+  } catch (error) {
+    return res.status(500).json({ message: "Server error.", error: error.message });
+  }
+};
+
+// GET — Browse all NGOs (for Donor)
+export const browseNgos = async (req, res) => {
+  try {
+    const search = req.query.search?.toLowerCase() || "";
+    const donorLat = parseFloat(req.query.lat);
+    const donorLng = parseFloat(req.query.lng);
+    const hasDonorLocation = !isNaN(donorLat) && !isNaN(donorLng);
+
+    // Haversine formula — distance in km
+    const haversineDistance = (lat1, lon1, lat2, lon2) => {
+      const R = 6371; // Earth radius in km
+      const toRad = (deg) => (deg * Math.PI) / 180;
+      const dLat = toRad(lat2 - lat1);
+      const dLon = toRad(lon2 - lon1);
+      const a =
+        Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+        Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) *
+        Math.sin(dLon / 2) * Math.sin(dLon / 2);
+      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+      return R * c;
+    };
+
+    // Fetch all NGO users (now including lat/lng)
+    const allNgos = await db
+      .select({
+        id: users.id,
+        name: users.name,
+        email: users.email,
+        phone: users.phone,
+        address: users.address,
+        latitude: users.latitude,
+        longitude: users.longitude,
+        createdAt: users.createdAt,
+      })
+      .from(users)
+      .where(eq(users.role, "NGO"))
+      .orderBy(desc(users.createdAt));
+
+    // For each NGO, compute stats, distance, and recent requests
+    const ngoList = await Promise.all(
+      allNgos.map(async (ngo) => {
+        // Total requests
+        const [totalReq] = await db
+          .select({ total: count() })
+          .from(ngoRequests)
+          .where(eq(ngoRequests.ngoId, ngo.id));
+
+        // Active (PENDING) requests
+        const [activeReq] = await db
+          .select({ total: count() })
+          .from(ngoRequests)
+          .where(and(eq(ngoRequests.ngoId, ngo.id), eq(ngoRequests.status, "PENDING")));
+
+        // Fulfilled requests
+        const [fulfilledReq] = await db
+          .select({ total: count() })
+          .from(ngoRequests)
+          .where(and(eq(ngoRequests.ngoId, ngo.id), eq(ngoRequests.status, "ACCEPTED")));
+
+        // Recent active requests from this NGO (max 3)
+        const recentRequests = await db
+          .select({
+            id: ngoRequests.id,
+            title: ngoRequests.title,
+            description: ngoRequests.description,
+            urgency: ngoRequests.urgency,
+            quantity: ngoRequests.quantity,
+            status: ngoRequests.status,
+            createdAt: ngoRequests.createdAt,
+          })
+          .from(ngoRequests)
+          .where(and(eq(ngoRequests.ngoId, ngo.id), eq(ngoRequests.status, "PENDING")))
+          .orderBy(desc(ngoRequests.createdAt))
+          .limit(3);
+
+        // Compute distance if both donor and NGO have coordinates
+        let distance = null;
+        if (hasDonorLocation && ngo.latitude != null && ngo.longitude != null) {
+          distance = Math.round(haversineDistance(donorLat, donorLng, ngo.latitude, ngo.longitude) * 10) / 10;
+        }
+
+        // Compute average rating
+        const [ratingResult] = await db
+          .select({
+            avgRating: avg(ratings.rating),
+            totalReviews: count(),
+          })
+          .from(ratings)
+          .where(eq(ratings.ngoId, ngo.id));
+
+        return {
+          ...ngo,
+          distance,
+          stats: {
+            totalRequests: totalReq?.total || 0,
+            activeRequests: activeReq?.total || 0,
+            fulfilledRequests: fulfilledReq?.total || 0,
+          },
+          ratingInfo: {
+            averageRating: ratingResult?.avgRating ? Math.round(parseFloat(ratingResult.avgRating) * 10) / 10 : 0,
+            totalReviews: ratingResult?.totalReviews || 0,
+          },
+          recentRequests,
+        };
+      })
+    );
+
+    // Filter by search term (name or address)
+    let filtered = search
+      ? ngoList.filter(
+          (ngo) =>
+            ngo.name.toLowerCase().includes(search) ||
+            (ngo.address && ngo.address.toLowerCase().includes(search))
+        )
+      : ngoList;
+
+    // Sort by nearest if requested
+    if (req.query.sortBy === "nearest" && hasDonorLocation) {
+      filtered = filtered.sort((a, b) => {
+        if (a.distance === null && b.distance === null) return 0;
+        if (a.distance === null) return 1;
+        if (b.distance === null) return -1;
+        return a.distance - b.distance;
+      });
+    }
+
+    return res.status(200).json({ ngos: filtered });
   } catch (error) {
     return res.status(500).json({ message: "Server error.", error: error.message });
   }

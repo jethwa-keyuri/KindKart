@@ -22,6 +22,23 @@ function Dashboard() {
         ngosHelped: 0
     });
     const [recentActivity, setRecentActivity] = useState([]);
+    // Browse NGOs state
+    const [ngoList, setNgoList] = useState([]);
+    const [ngoSearch, setNgoSearch] = useState("");
+    const [ngoFilter, setNgoFilter] = useState("all"); // all, active, top, nearest
+    const [selectedNgo, setSelectedNgo] = useState(null);
+    const [ngoLoading, setNgoLoading] = useState(false);
+    // Location state for nearest NGO
+    const [donorLocation, setDonorLocation] = useState(null); // { lat, lng }
+    const [locationStatus, setLocationStatus] = useState('idle'); // idle, loading, granted, denied, unavailable
+    // Rating & Review state
+    const [ngoReviews, setNgoReviews] = useState([]);
+    const [ngoReviewStats, setNgoReviewStats] = useState({ totalReviews: 0, averageRating: 0, distribution: {} });
+    const [reviewForm, setReviewForm] = useState({ rating: 0, comment: '' });
+    const [reviewHover, setReviewHover] = useState(0);
+    const [reviewLoading, setReviewLoading] = useState(false);
+    const [reviewSubmitting, setReviewSubmitting] = useState(false);
+    const [editingReview, setEditingReview] = useState(false);
     const [profileData, setProfileData] = useState({
         name: "",
         role: "",
@@ -49,7 +66,7 @@ function Dashboard() {
                 phone: userData.phone || "",
                 address: userData.address || "",
             });
-        } catch(e) {
+        } catch (e) {
             console.error("Failed to fetch profile", e);
         }
     };
@@ -79,6 +96,8 @@ function Dashboard() {
             fetchNgoRequests();
         } else if (activeTab === 'dashboard') {
             fetchDashboardStats();
+        } else if (activeTab === 'browsengos') {
+            fetchNgoList();
         }
     }, [activeTab]);
 
@@ -102,6 +121,145 @@ function Dashboard() {
         }
     };
 
+    const fetchNgoList = async (searchTerm = "", sortBy = "") => {
+        try {
+            setNgoLoading(true);
+            const token = localStorage.getItem("token");
+            const params = new URLSearchParams();
+            if (searchTerm) params.set('search', searchTerm);
+            if (donorLocation) {
+                params.set('lat', donorLocation.lat);
+                params.set('lng', donorLocation.lng);
+            }
+            if (sortBy) params.set('sortBy', sortBy);
+            const queryStr = params.toString() ? `?${params.toString()}` : '';
+            const res = await axios.get(`http://localhost:8000/api/donor/browse-ngos${queryStr}`, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            setNgoList(res.data.ngos || []);
+        } catch (e) {
+            console.error("Failed to fetch NGOs", e);
+        } finally {
+            setNgoLoading(false);
+        }
+    };
+
+    const handleNgoSearch = (e) => {
+        const val = e.target.value;
+        setNgoSearch(val);
+        fetchNgoList(val, ngoFilter === 'nearest' ? 'nearest' : '');
+    };
+
+    // Fetch reviews for a specific NGO
+    const fetchNgoReviews = async (ngoId) => {
+        try {
+            setReviewLoading(true);
+            const token = localStorage.getItem('token');
+            const res = await axios.get(`http://localhost:8000/api/ratings/ngo/${ngoId}`, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            setNgoReviews(res.data.reviews || []);
+            setNgoReviewStats(res.data.stats || { totalReviews: 0, averageRating: 0, distribution: {} });
+        } catch (e) {
+            console.error('Failed to fetch reviews', e);
+        } finally {
+            setReviewLoading(false);
+        }
+    };
+
+    // Fetch reviews when an NGO is selected
+    useEffect(() => {
+        if (selectedNgo) {
+            fetchNgoReviews(selectedNgo.id);
+            setReviewForm({ rating: 0, comment: '' });
+            setEditingReview(false);
+            setReviewHover(0);
+        } else {
+            setNgoReviews([]);
+            setNgoReviewStats({ totalReviews: 0, averageRating: 0, distribution: {} });
+        }
+    }, [selectedNgo?.id]);
+    // Request browser geolocation
+    const requestLocation = () => {
+        if (!navigator.geolocation) {
+            setLocationStatus('unavailable');
+            return;
+        }
+        setLocationStatus('loading');
+        navigator.geolocation.getCurrentPosition(
+            async (position) => {
+                const coords = {
+                    lat: position.coords.latitude,
+                    lng: position.coords.longitude
+                };
+                setDonorLocation(coords);
+                setLocationStatus('granted');
+                // Save coordinates to profile silently
+                try {
+                    const token = localStorage.getItem("token");
+                    await axios.put("http://localhost:8000/api/profile", {
+                        latitude: coords.lat,
+                        longitude: coords.lng
+                    }, { headers: { Authorization: `Bearer ${token}` } });
+                } catch (e) {
+                    console.error("Failed to save location to profile", e);
+                }
+            },
+            (error) => {
+                console.error("Geolocation error:", error);
+                setLocationStatus('denied');
+            },
+            { enableHighAccuracy: true, timeout: 10000 }
+        );
+    };
+
+    // When nearest filter is selected, request location if not already granted
+    const handleNearestFilter = () => {
+        setNgoFilter('nearest');
+        if (!donorLocation) {
+            requestLocation();
+        }
+    };
+
+    // Re-fetch with nearest sort when location becomes available and filter is nearest
+    useEffect(() => {
+        if (donorLocation && ngoFilter === 'nearest' && activeTab === 'browsengos') {
+            fetchNgoList(ngoSearch, 'nearest');
+        }
+    }, [donorLocation]);
+
+    // Re-fetch when filter changes
+    useEffect(() => {
+        if (activeTab === 'browsengos') {
+            fetchNgoList(ngoSearch, ngoFilter === 'nearest' ? 'nearest' : '');
+        }
+    }, [ngoFilter]);
+
+    const getFilteredNgos = () => {
+        let list = [...ngoList];
+        if (ngoFilter === 'active') {
+            list = list.filter(n => n.stats.activeRequests > 0);
+        } else if (ngoFilter === 'top') {
+            list = list.sort((a, b) => b.stats.totalRequests - a.stats.totalRequests);
+        } else if (ngoFilter === 'nearest') {
+            // Already sorted from API, but also push unknown-distance to end
+            list = list.sort((a, b) => {
+                if (a.distance === null && b.distance === null) return 0;
+                if (a.distance === null) return 1;
+                if (b.distance === null) return -1;
+                return a.distance - b.distance;
+            });
+        }
+        return list;
+    };
+
+    const formatDistance = (km) => {
+        if (km === null || km === undefined) return null;
+        if (km < 1) return `${Math.round(km * 1000)} m`;
+        if (km < 10) return `${km.toFixed(1)} km`;
+        return `${Math.round(km)} km`;
+    };
+
     const handleProfileSave = async () => {
         try {
             const token = localStorage.getItem("token");
@@ -121,7 +279,7 @@ function Dashboard() {
             }));
             alert("Profile updated successfully!");
             setIsEditingProfile(false);
-        } catch(e) {
+        } catch (e) {
             console.error(e);
             alert("Failed to update profile");
         }
@@ -139,7 +297,7 @@ function Dashboard() {
     };
 
     const handleDonationChange = (e) => {
-        setDonationForm({...donationForm, [e.target.name]: e.target.value});
+        setDonationForm({ ...donationForm, [e.target.name]: e.target.value });
     };
 
     const handleDonationSubmit = async (e) => {
@@ -181,7 +339,7 @@ function Dashboard() {
     const handleUpdateDonationStatus = async (id, newStatus) => {
         try {
             const token = localStorage.getItem("token");
-            await axios.patch(`http://localhost:8000/api/donor/donation-status/${id}`, 
+            await axios.patch(`http://localhost:8000/api/donor/donation-status/${id}`,
                 { status: newStatus },
                 { headers: { Authorization: `Bearer ${token}` } }
             );
@@ -230,7 +388,7 @@ function Dashboard() {
         switch (req.status) {
             case "PENDING":
                 return (
-                    <button className="action-btn primary small" style={{marginTop:'0.5rem'}} onClick={() => handleFulfillRequest(req.id)}>
+                    <button className="action-btn primary small" style={{ marginTop: '0.5rem' }} onClick={() => handleFulfillRequest(req.id)}>
                         🤝 Fulfill Request
                     </button>
                 );
@@ -294,7 +452,7 @@ function Dashboard() {
                     </h2>
                     <nav className="menu">
                         <a className={activeTab === 'dashboard' ? 'active' : ''} onClick={() => setActiveTab('dashboard')}>
-                             Dashboard
+                            Dashboard
                         </a>
                         <a className={activeTab === 'createdonations' ? 'active' : ''} onClick={() => setActiveTab('createdonations')}>
                             Create Donation
@@ -304,6 +462,9 @@ function Dashboard() {
                         </a>
                         <a className={activeTab === 'requests' ? 'active' : ''} onClick={() => setActiveTab('requests')}>
                             NGO Requests
+                        </a>
+                        <a className={activeTab === 'browsengos' ? 'active' : ''} onClick={() => setActiveTab('browsengos')}>
+                            🏢 Browse NGOs
                         </a>
                     </nav>
                 </div>
@@ -442,7 +603,7 @@ function Dashboard() {
                             </div>
                             <div className="card-list">
                                 {myDonations.length === 0 ? (
-                                    <p className="placeholder-text" style={{marginTop: '1rem'}}>No donations made yet.</p>
+                                    <p className="placeholder-text" style={{ marginTop: '1rem' }}>No donations made yet.</p>
                                 ) : (
                                     myDonations.map(don => (
                                         <div className="item-card" key={don.id}>
@@ -467,7 +628,7 @@ function Dashboard() {
                             <h2>NGO Requests</h2>
                             <div className="card-list">
                                 {ngoRequests.length === 0 ? (
-                                    <p className="placeholder-text" style={{marginTop: '1rem'}}>No requests from NGOs yet.</p>
+                                    <p className="placeholder-text" style={{ marginTop: '1rem' }}>No requests from NGOs yet.</p>
                                 ) : (
                                     ngoRequests.map(req => (
                                         <div className="item-card" key={req.id}>
@@ -482,6 +643,375 @@ function Dashboard() {
                                     ))
                                 )}
                             </div>
+                        </div>
+                    )}
+
+                    {/* ─── BROWSE NGOs TAB ─── */}
+                    {activeTab === 'browsengos' && (
+                        <div className="tab-content fade-in">
+                            <div className="browse-ngos-header">
+                                <div>
+                                    <h2 style={{ margin: 0 }}>Discover NGOs</h2>
+                                    <p style={{ margin: '0.3rem 0 0', color: '#6A9C89', fontSize: '0.95rem' }}>Find and connect with NGOs making a difference</p>
+                                </div>
+                                <div className="ngo-search-box">
+                                    <span className="search-icon">🔍</span>
+                                    <input
+                                        type="text"
+                                        placeholder="Search by name or location..."
+                                        value={ngoSearch}
+                                        onChange={handleNgoSearch}
+                                        className="ngo-search-input"
+                                    />
+                                </div>
+                            </div>
+
+                            <div className="ngo-filter-bar">
+                                <button className={`filter-chip ${ngoFilter === 'all' ? 'active' : ''}`} onClick={() => setNgoFilter('all')}>All NGOs</button>
+                                <button className={`filter-chip ${ngoFilter === 'active' ? 'active' : ''}`} onClick={() => setNgoFilter('active')}>🟢 Active Requests</button>
+                                <button className={`filter-chip ${ngoFilter === 'top' ? 'active' : ''}`} onClick={() => setNgoFilter('top')}>⭐ Most Active</button>
+                                <button className={`filter-chip nearest-chip ${ngoFilter === 'nearest' ? 'active' : ''}`} onClick={handleNearestFilter}>
+                                    {locationStatus === 'loading' ? (
+                                        <><span className="location-spinner"></span> Locating...</>
+                                    ) : locationStatus === 'granted' ? (
+                                        <>📍 Nearest</>
+                                    ) : locationStatus === 'denied' ? (
+                                        <>⚠️ Location Denied</>
+                                    ) : (
+                                        <>📍 Nearest</>
+                                    )}
+                                </button>
+                                {locationStatus === 'granted' && ngoFilter === 'nearest' && (
+                                    <span className="location-active-badge">
+                                        ✓ Location active
+                                    </span>
+                                )}
+                                <span className="ngo-count-badge">{getFilteredNgos().length} NGO{getFilteredNgos().length !== 1 ? 's' : ''}</span>
+                            </div>
+                            {locationStatus === 'denied' && ngoFilter === 'nearest' && (
+                                <div className="location-denied-banner">
+                                    <span>📍</span>
+                                    <p>Location access was denied. Please enable location in your browser settings to see nearest NGOs.</p>
+                                    <button onClick={requestLocation}>Try Again</button>
+                                </div>
+                            )}
+
+                            {ngoLoading ? (
+                                <div className="ngo-loading">
+                                    <div className="ngo-spinner"></div>
+                                    <p>Loading NGOs...</p>
+                                </div>
+                            ) : getFilteredNgos().length === 0 ? (
+                                <div className="ngo-empty-state">
+                                    <span style={{ fontSize: '3rem' }}>🏢</span>
+                                    <h3>No NGOs Found</h3>
+                                    <p>Try adjusting your search or filters</p>
+                                </div>
+                            ) : (
+                                <div className="ngo-grid">
+                                    {getFilteredNgos().map(ngo => (
+                                        <div className="ngo-card" key={ngo.id} onClick={() => setSelectedNgo(ngo)}>
+                                            <div className="ngo-card-header">
+                                                <div className="ngo-avatar-large">
+                                                    {ngo.name?.charAt(0)?.toUpperCase()}
+                                                </div>
+                                                <div className="ngo-card-title">
+                                                    <h3>{ngo.name}</h3>
+                                                    <p className="ngo-card-location">
+                                                        📍 {ngo.address || 'Location not specified'}
+                                                    </p>
+                                                </div>
+                                                {formatDistance(ngo.distance) && (
+                                                    <span className="distance-badge">
+                                                        📍 {formatDistance(ngo.distance)}
+                                                    </span>
+                                                )}
+                                                {ngo.stats.activeRequests > 0 && (
+                                                    <span className="active-badge pulse">Active</span>
+                                                )}
+                                            </div>
+                                            {/* Star rating display on card */}
+                                            {ngo.ratingInfo && ngo.ratingInfo.totalReviews > 0 && (
+                                                <div className="ngo-card-rating">
+                                                    <div className="star-display-small">
+                                                        {[1, 2, 3, 4, 5].map(s => (
+                                                            <span key={s} className={`star-sm ${s <= Math.round(ngo.ratingInfo.averageRating) ? 'filled' : ''}`}>★</span>
+                                                        ))}
+                                                    </div>
+                                                    <span className="rating-text-sm">{ngo.ratingInfo.averageRating}</span>
+                                                    <span className="review-count-sm">({ngo.ratingInfo.totalReviews})</span>
+                                                </div>
+                                            )}
+                                            <div className="ngo-card-stats">
+                                                <div className="ngo-stat">
+                                                    <span className="ngo-stat-value">{ngo.stats.totalRequests}</span>
+                                                    <span className="ngo-stat-label">Requests</span>
+                                                </div>
+                                                <div className="ngo-stat-divider"></div>
+                                                <div className="ngo-stat">
+                                                    <span className="ngo-stat-value">{ngo.stats.activeRequests}</span>
+                                                    <span className="ngo-stat-label">Active</span>
+                                                </div>
+                                                <div className="ngo-stat-divider"></div>
+                                                <div className="ngo-stat">
+                                                    <span className="ngo-stat-value">{ngo.stats.fulfilledRequests}</span>
+                                                    <span className="ngo-stat-label">Fulfilled</span>
+                                                </div>
+                                            </div>
+                                            {ngo.recentRequests.length > 0 && (
+                                                <div className="ngo-card-requests">
+                                                    <p className="ngo-card-requests-label">Active needs:</p>
+                                                    {ngo.recentRequests.slice(0, 2).map(req => (
+                                                        <div className="ngo-mini-request" key={req.id}>
+                                                            <span className={`urgency-dot urgency-${(req.urgency || 'low').toLowerCase()}`}></span>
+                                                            <span className="mini-req-title">{req.title}</span>
+                                                            <span className="mini-req-qty">{req.quantity}</span>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            )}
+                                            <div className="ngo-card-footer">
+                                                <span className="ngo-card-joined">Joined {new Date(ngo.createdAt).toLocaleDateString('en-US', { month: 'short', year: 'numeric' })}</span>
+                                                <button className="ngo-view-btn" onClick={(e) => { e.stopPropagation(); setSelectedNgo(ngo); }}>View Details →</button>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+
+                            {/* ─── NGO DETAIL MODAL ─── */}
+                            {selectedNgo && (
+                                <div className="ngo-modal-overlay" onClick={() => setSelectedNgo(null)}>
+                                    <div className="ngo-modal" onClick={(e) => e.stopPropagation()}>
+                                        <button className="ngo-modal-close" onClick={() => setSelectedNgo(null)}>✕</button>
+
+                                        <div className="ngo-modal-header">
+                                            <div className="ngo-avatar-xl">
+                                                {selectedNgo.name?.charAt(0)?.toUpperCase()}
+                                            </div>
+                                            <div>
+                                                <h2>{selectedNgo.name}</h2>
+                                                <p className="ngo-modal-meta">📍 {selectedNgo.address || 'No address'} • 📧 {selectedNgo.email}</p>
+                                                {selectedNgo.phone && <p className="ngo-modal-meta">📞 {selectedNgo.phone}</p>}
+                                                {formatDistance(selectedNgo.distance) && (
+                                                    <p className="ngo-modal-meta distance-meta">🧭 {formatDistance(selectedNgo.distance)} away from you</p>
+                                                )}
+                                            </div>
+                                        </div>
+
+                                        <div className="ngo-modal-stats">
+                                            <div className="modal-stat-card">
+                                                <span className="modal-stat-icon">📋</span>
+                                                <span className="modal-stat-val">{selectedNgo.stats.totalRequests}</span>
+                                                <span className="modal-stat-lbl">Total Requests</span>
+                                            </div>
+                                            <div className="modal-stat-card">
+                                                <span className="modal-stat-icon">🟢</span>
+                                                <span className="modal-stat-val">{selectedNgo.stats.activeRequests}</span>
+                                                <span className="modal-stat-lbl">Active</span>
+                                            </div>
+                                            <div className="modal-stat-card">
+                                                <span className="modal-stat-icon">✅</span>
+                                                <span className="modal-stat-val">{selectedNgo.stats.fulfilledRequests}</span>
+                                                <span className="modal-stat-lbl">Fulfilled</span>
+                                            </div>
+                                        </div>
+
+                                        <div className="ngo-modal-requests">
+                                            <h3>Active Requests</h3>
+                                            {selectedNgo.recentRequests.length === 0 ? (
+                                                <p className="placeholder-text">No active requests at this time.</p>
+                                            ) : (
+                                                selectedNgo.recentRequests.map(req => (
+                                                    <div className="modal-request-card" key={req.id}>
+                                                        <div className="modal-req-top">
+                                                            <h4>{req.title}</h4>
+                                                            <span className={`urgency-badge urgency-${(req.urgency || 'low').toLowerCase()}`}>
+                                                                {req.urgency === 'High' ? '🔴' : req.urgency === 'Medium' ? '🟡' : '🟢'} {req.urgency || 'Low'}
+                                                            </span>
+                                                        </div>
+                                                        <p>{req.description || 'No description provided.'}</p>
+                                                        <p><strong>Quantity needed:</strong> {req.quantity}</p>
+                                                        <button className="action-btn primary small" onClick={async () => {
+                                                            await handleFulfillRequest(req.id);
+                                                            // Refresh NGO data
+                                                            fetchNgoList(ngoSearch);
+                                                            setSelectedNgo(prev => ({
+                                                                ...prev,
+                                                                recentRequests: prev.recentRequests.filter(r => r.id !== req.id),
+                                                                stats: {
+                                                                    ...prev.stats,
+                                                                    activeRequests: Math.max(0, prev.stats.activeRequests - 1),
+                                                                    fulfilledRequests: prev.stats.fulfilledRequests + 1,
+                                                                }
+                                                            }));
+                                                        }}>🤝 Fulfill This Request</button>
+                                                    </div>
+                                                ))
+                                            )}
+                                        </div>
+
+                                        {/* ─── REVIEWS SECTION ─── */}
+                                        <div className="ngo-modal-reviews">
+                                            <div className="reviews-header">
+                                                <h3>Ratings & Reviews</h3>
+                                                {ngoReviewStats.totalReviews > 0 && (
+                                                    <div className="reviews-summary-inline">
+                                                        <span className="avg-rating-big">{ngoReviewStats.averageRating}</span>
+                                                        <div className="star-display">
+                                                            {[1, 2, 3, 4, 5].map(s => (
+                                                                <span key={s} className={`star ${s <= Math.round(ngoReviewStats.averageRating) ? 'filled' : ''}`}>★</span>
+                                                            ))}
+                                                        </div>
+                                                        <span className="total-reviews-text">{ngoReviewStats.totalReviews} review{ngoReviewStats.totalReviews !== 1 ? 's' : ''}</span>
+                                                    </div>
+                                                )}
+                                            </div>
+
+                                            {/* Rating Distribution */}
+                                            {ngoReviewStats.totalReviews > 0 && (
+                                                <div className="rating-distribution">
+                                                    {[5, 4, 3, 2, 1].map(star => {
+                                                        const cnt = ngoReviewStats.distribution?.[star] || 0;
+                                                        const pct = ngoReviewStats.totalReviews > 0 ? (cnt / ngoReviewStats.totalReviews) * 100 : 0;
+                                                        return (
+                                                            <div className="dist-row" key={star}>
+                                                                <span className="dist-star">{star} ★</span>
+                                                                <div className="dist-bar-bg">
+                                                                    <div className="dist-bar-fill" style={{ width: `${pct}%` }}></div>
+                                                                </div>
+                                                                <span className="dist-count">{cnt}</span>
+                                                            </div>
+                                                        );
+                                                    })}
+                                                </div>
+                                            )}
+
+                                            {/* Review Form */}
+                                            <div className="review-form-card">
+                                                <h4>{editingReview ? 'Update Your Review' : 'Write a Review'}</h4>
+                                                <div className="star-input">
+                                                    {[1, 2, 3, 4, 5].map(s => (
+                                                        <span
+                                                            key={s}
+                                                            className={`star-interactive ${s <= (reviewHover || reviewForm.rating) ? 'filled' : ''}`}
+                                                            onClick={() => setReviewForm(prev => ({ ...prev, rating: s }))}
+                                                            onMouseEnter={() => setReviewHover(s)}
+                                                            onMouseLeave={() => setReviewHover(0)}
+                                                        >★</span>
+                                                    ))}
+                                                    {reviewForm.rating > 0 && (
+                                                        <span className="rating-label">
+                                                            {reviewForm.rating === 1 ? 'Poor' : reviewForm.rating === 2 ? 'Fair' : reviewForm.rating === 3 ? 'Good' : reviewForm.rating === 4 ? 'Very Good' : 'Excellent'}
+                                                        </span>
+                                                    )}
+                                                </div>
+                                                <textarea
+                                                    className="review-textarea"
+                                                    placeholder="Share your experience with this NGO..."
+                                                    value={reviewForm.comment}
+                                                    onChange={(e) => setReviewForm(prev => ({ ...prev, comment: e.target.value }))}
+                                                    maxLength={500}
+                                                />
+                                                <div className="review-form-footer">
+                                                    <span className="char-count">{reviewForm.comment.length}/500</span>
+                                                    <div style={{ display: 'flex', gap: '0.5rem' }}>
+                                                        {editingReview && (
+                                                            <button className="action-btn secondary small" onClick={() => {
+                                                                setEditingReview(false);
+                                                                setReviewForm({ rating: 0, comment: '' });
+                                                            }}>Cancel</button>
+                                                        )}
+                                                        <button
+                                                            className="action-btn primary small"
+                                                            disabled={reviewForm.rating === 0 || reviewSubmitting}
+                                                            onClick={async () => {
+                                                                if (reviewForm.rating === 0) return;
+                                                                try {
+                                                                    setReviewSubmitting(true);
+                                                                    const token = localStorage.getItem('token');
+                                                                    await axios.post(`http://localhost:8000/api/ratings/ngo/${selectedNgo.id}`, {
+                                                                        rating: reviewForm.rating,
+                                                                        comment: reviewForm.comment
+                                                                    }, { headers: { Authorization: `Bearer ${token}` } });
+                                                                    setReviewForm({ rating: 0, comment: '' });
+                                                                    setEditingReview(false);
+                                                                    // Refresh reviews
+                                                                    fetchNgoReviews(selectedNgo.id);
+                                                                    // Refresh NGO list for updated ratings on cards
+                                                                    fetchNgoList(ngoSearch, ngoFilter === 'nearest' ? 'nearest' : '');
+                                                                } catch (e) {
+                                                                    alert(e.response?.data?.message || 'Failed to submit review');
+                                                                } finally {
+                                                                    setReviewSubmitting(false);
+                                                                }
+                                                            }}
+                                                        >
+                                                            {reviewSubmitting ? 'Submitting...' : editingReview ? 'Update Review' : 'Submit Review'}
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            {/* Reviews List */}
+                                            <div className="reviews-list">
+                                                {reviewLoading ? (
+                                                    <div className="ngo-loading" style={{ padding: '2rem' }}>
+                                                        <div className="ngo-spinner"></div>
+                                                    </div>
+                                                ) : ngoReviews.length === 0 ? (
+                                                    <p className="placeholder-text">No reviews yet. Be the first to review!</p>
+                                                ) : (
+                                                    ngoReviews.map(review => {
+                                                        const user = JSON.parse(localStorage.getItem('user') || '{}');
+                                                        const isOwn = review.donorId === user.id;
+                                                        return (
+                                                            <div className={`review-card ${isOwn ? 'own' : ''}`} key={review.id}>
+                                                                <div className="review-card-top">
+                                                                    <div className="review-author">
+                                                                        <div className="review-avatar">{review.donorName?.charAt(0)?.toUpperCase() || 'D'}</div>
+                                                                        <div>
+                                                                            <p className="review-name">{review.donorName || 'Anonymous'} {isOwn && <span className="you-badge">You</span>}</p>
+                                                                            <p className="review-date">{new Date(review.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</p>
+                                                                        </div>
+                                                                    </div>
+                                                                    <div className="review-stars">
+                                                                        {[1, 2, 3, 4, 5].map(s => (
+                                                                            <span key={s} className={`star-sm ${s <= review.rating ? 'filled' : ''}`}>★</span>
+                                                                        ))}
+                                                                    </div>
+                                                                </div>
+                                                                {review.comment && <p className="review-comment">{review.comment}</p>}
+                                                                {isOwn && (
+                                                                    <div className="review-own-actions">
+                                                                        <button onClick={() => {
+                                                                            setReviewForm({ rating: review.rating, comment: review.comment || '' });
+                                                                            setEditingReview(true);
+                                                                        }}>✏️ Edit</button>
+                                                                        <button onClick={async () => {
+                                                                            if (!window.confirm('Delete your review?')) return;
+                                                                            try {
+                                                                                const token = localStorage.getItem('token');
+                                                                                await axios.delete(`http://localhost:8000/api/ratings/${review.id}`, {
+                                                                                    headers: { Authorization: `Bearer ${token}` }
+                                                                                });
+                                                                                fetchNgoReviews(selectedNgo.id);
+                                                                                fetchNgoList(ngoSearch, ngoFilter === 'nearest' ? 'nearest' : '');
+                                                                            } catch (e) {
+                                                                                alert('Failed to delete review');
+                                                                            }
+                                                                        }}>🗑️ Delete</button>
+                                                                    </div>
+                                                                )}
+                                                            </div>
+                                                        );
+                                                    })
+                                                )}
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
                         </div>
                     )}
 
@@ -536,8 +1066,8 @@ function Dashboard() {
                                             <input type="text" name="name" value={profileData.name} onChange={handleProfileChange} />
                                         </div>
                                         <div className="form-group">
-                                            <label>Role <span style={{fontSize:'0.8rem',color:'#999'}}>(cannot be changed)</span></label>
-                                            <input type="text" value={profileData.role} readOnly style={{backgroundColor: '#C4DAD2', cursor: 'not-allowed', color: '#6A9C89'}} />
+                                            <label>Role <span style={{ fontSize: '0.8rem', color: '#999' }}>(cannot be changed)</span></label>
+                                            <input type="text" value={profileData.role} readOnly style={{ backgroundColor: '#C4DAD2', cursor: 'not-allowed', color: '#6A9C89' }} />
                                         </div>
                                         <div className="form-group">
                                             <label>Phone Number</label>
@@ -548,12 +1078,12 @@ function Dashboard() {
                                             <textarea name="address" value={profileData.address} onChange={handleProfileChange}></textarea>
                                         </div>
                                         <div className="form-group">
-                                            <label>Email Address <span style={{fontSize:'0.8rem',color:'#999'}}>(cannot be changed)</span></label>
-                                            <input type="email" value={profileData.email} readOnly style={{backgroundColor: '#C4DAD2', cursor: 'not-allowed', color: '#6A9C89'}} />
+                                            <label>Email Address <span style={{ fontSize: '0.8rem', color: '#999' }}>(cannot be changed)</span></label>
+                                            <input type="email" value={profileData.email} readOnly style={{ backgroundColor: '#C4DAD2', cursor: 'not-allowed', color: '#6A9C89' }} />
                                         </div>
                                         <div className="form-group">
-                                            <label>Password <span style={{fontSize:'0.8rem',color:'#999'}}>(cannot be changed)</span></label>
-                                            <input type="password" value="••••••••" readOnly style={{backgroundColor: '#C4DAD2', cursor: 'not-allowed', color: '#6A9C89'}} />
+                                            <label>Password <span style={{ fontSize: '0.8rem', color: '#999' }}>(cannot be changed)</span></label>
+                                            <input type="password" value="••••••••" readOnly style={{ backgroundColor: '#C4DAD2', cursor: 'not-allowed', color: '#6A9C89' }} />
                                         </div>
                                         <div style={{ display: 'flex', gap: '1rem', marginTop: '1rem' }}>
                                             <button type="button" className="action-btn primary" onClick={handleProfileSave}>Save Changes</button>

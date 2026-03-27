@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { getProfile, updateProfile } from "../controllers/profileController.js";
-import { createDonation, getMyDonations, getNgoRequests, getDashboardStats, fulfillNgoRequest, updateDonationStatus } from "../controllers/donorController.js";
+import { createDonation, getMyDonations, getNgoRequests, getDashboardStats, fulfillNgoRequest, updateDonationStatus, browseNgos } from "../controllers/donorController.js";
 import { getDonorRequests, createNgoRequest, getMyNgoRequests, getNgoDashboardStats, acceptDonation, denyDonation, markPickedUp, markDonationCompleted } from "../controllers/ngoController.js";
 import { getAllUsers, getAdminDashboardStats, getAllDonations, getAllNgoRequests, deleteUser, adminUpdateDonationStatus, adminUpdateNgoRequestStatus } from "../controllers/userController.js";
 import { authenticate, authorize } from "../middleware/authMiddleware.js";
@@ -8,6 +8,8 @@ import { validate } from "../middleware/validateMiddleware.js";
 import { createDonationSchema } from "../schemas/donorSchema.js";
 import { createNgoRequestSchema } from "../schemas/ngoSchema.js";
 import { updateProfileSchema } from "../schemas/profileSchema.js";
+import { submitRatingSchema } from "../schemas/ratingSchema.js";
+import { submitRating, getNgoRatings, deleteRating, getNgoAverageRating } from "../controllers/ratingController.js";
 
 const router = Router();
 
@@ -28,6 +30,13 @@ router.get("/donor/ngo-requests", authenticate, authorize("DONOR"), getNgoReques
 router.get("/donor/dashboard-stats", authenticate, authorize("DONOR"), getDashboardStats);
 router.patch("/donor/fulfill-request/:id", authenticate, authorize("DONOR"), fulfillNgoRequest);
 router.patch("/donor/donation-status/:id", authenticate, authorize("DONOR"), updateDonationStatus);
+router.get("/donor/browse-ngos", authenticate, authorize("DONOR"), browseNgos);
+
+// ─── Rating & Review API ───
+router.post("/ratings/ngo/:ngoId", authenticate, authorize("DONOR"), validate(submitRatingSchema), submitRating);
+router.get("/ratings/ngo/:ngoId", authenticate, getNgoRatings);
+router.delete("/ratings/:id", authenticate, authorize("DONOR"), deleteRating);
+router.get("/ratings/ngo/:ngoId/average", authenticate, getNgoAverageRating);
 
 // ─── NGO API ───
 router.get("/ngo/donor-requests", authenticate, authorize("NGO"), getDonorRequests);

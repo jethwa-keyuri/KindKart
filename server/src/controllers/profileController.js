@@ -12,6 +12,8 @@ export const getProfile = async (req, res) => {
         role: users.role,
         phone: users.phone,
         address: users.address,
+        latitude: users.latitude,
+        longitude: users.longitude,
         createdAt: users.createdAt,
       })
       .from(users)
@@ -44,15 +46,18 @@ export const getProfile = async (req, res) => {
 
 export const updateProfile = async (req, res) => {
   try {
-    const { name, phone, address } = req.body;
+    const { name, phone, address, latitude, longitude } = req.body;
+
+    const updateData = {};
+    if (name) updateData.name = name;
+    if (phone) updateData.phone = phone;
+    if (address) updateData.address = address;
+    if (latitude !== undefined) updateData.latitude = latitude;
+    if (longitude !== undefined) updateData.longitude = longitude;
 
     const [updatedUser] = await db
       .update(users)
-      .set({
-        ...(name && { name }),
-        ...(phone && { phone }),
-        ...(address && { address }),
-      })
+      .set(updateData)
       .where(eq(users.id, req.user.id))
       .returning({
         id: users.id,
@@ -61,6 +66,8 @@ export const updateProfile = async (req, res) => {
         role: users.role,
         phone: users.phone,
         address: users.address,
+        latitude: users.latitude,
+        longitude: users.longitude,
       });
 
     if (!updatedUser) {

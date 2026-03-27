@@ -522,3 +522,694 @@
     margin-top: 0.3rem;
     align-self: flex-start;
 }
+
+/* ════════════════════════════════════════════
+   BROWSE NGOs — Styles
+   ════════════════════════════════════════════ */
+
+.browse-ngos-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 1.5rem;
+    margin-bottom: 1.5rem;
+    flex-wrap: wrap;
+}
+
+.ngo-search-box {
+    position: relative;
+    min-width: 280px;
+}
+
+.search-icon {
+    position: absolute;
+    left: 14px;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 1rem;
+    pointer-events: none;
+}
+
+.ngo-search-input {
+    width: 100%;
+    padding: 0.85rem 1rem 0.85rem 2.6rem;
+    border: 1px solid #C4DAD2;
+    border-radius: 12px;
+    background: #fff;
+    font-size: 0.95rem;
+    font-family: inherit;
+    color: #16423C;
+    transition: all 0.3s ease;
+    box-sizing: border-box;
+}
+
+.ngo-search-input:focus {
+    outline: none;
+    border-color: #6A9C89;
+    box-shadow: 0 0 0 3px rgba(106, 156, 137, 0.15);
+}
+
+.ngo-search-input::placeholder {
+    color: #a0bab3;
+}
+
+/* Filter Bar */
+.ngo-filter-bar {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    margin-bottom: 1.5rem;
+    flex-wrap: wrap;
+}
+
+.filter-chip {
+    padding: 0.5rem 1.1rem;
+    border-radius: 20px;
+    border: 1px solid #C4DAD2;
+    background: #fff;
+    color: #16423C;
+    font-size: 0.88rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.25s ease;
+    font-family: inherit;
+}
+
+.filter-chip:hover {
+    background: #E9EFEC;
+    border-color: #6A9C89;
+}
+
+.filter-chip.active {
+    background: #16423C;
+    color: #E9EFEC;
+    border-color: #16423C;
+}
+
+.ngo-count-badge {
+    margin-left: auto;
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: #6A9C89;
+    background: rgba(106, 156, 137, 0.1);
+    padding: 0.35rem 0.9rem;
+    border-radius: 20px;
+}
+
+/* NGO Grid */
+.ngo-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+    gap: 1.3rem;
+}
+
+/* NGO Card */
+.ngo-card {
+    background: #ffffff;
+    border: 1px solid #C4DAD2;
+    border-radius: 18px;
+    padding: 1.5rem;
+    cursor: pointer;
+    transition: all 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    position: relative;
+    overflow: hidden;
+}
+
+.ngo-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 4px;
+    background: linear-gradient(90deg, #16423C, #6A9C89);
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}
+
+.ngo-card:hover {
+    transform: translateY(-6px);
+    box-shadow: 0 12px 35px rgba(22, 66, 60, 0.12);
+    border-color: #6A9C89;
+}
+
+.ngo-card:hover::before {
+    opacity: 1;
+}
+
+.ngo-card-header {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}
+
+.ngo-avatar-large {
+    width: 52px;
+    height: 52px;
+    border-radius: 14px;
+    background: linear-gradient(135deg, #16423C, #6A9C89);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: #fff;
+    flex-shrink: 0;
+}
+
+.ngo-card-title {
+    flex: 1;
+    min-width: 0;
+}
+
+.ngo-card-title h3 {
+    margin: 0;
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: #16423C;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.ngo-card-location {
+    margin: 0.2rem 0 0;
+    font-size: 0.85rem;
+    color: #6A9C89;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.active-badge {
+    font-size: 0.75rem;
+    font-weight: 700;
+    padding: 0.25rem 0.7rem;
+    border-radius: 20px;
+    background: rgba(34, 197, 94, 0.12);
+    color: #15803d;
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
+.active-badge.pulse {
+    animation: badgePulse 2s ease-in-out infinite;
+}
+
+@keyframes badgePulse {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.3); }
+    50% { box-shadow: 0 0 0 6px rgba(34, 197, 94, 0); }
+}
+
+/* NGO Card Stats */
+.ngo-card-stats {
+    display: flex;
+    align-items: center;
+    justify-content: space-around;
+    background: #f7faf9;
+    border-radius: 12px;
+    padding: 0.8rem;
+    gap: 0;
+}
+
+.ngo-stat {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.2rem;
+    flex: 1;
+}
+
+.ngo-stat-value {
+    font-size: 1.3rem;
+    font-weight: 700;
+    color: #16423C;
+}
+
+.ngo-stat-label {
+    font-size: 0.75rem;
+    font-weight: 500;
+    color: #6A9C89;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+}
+
+.ngo-stat-divider {
+    width: 1px;
+    height: 30px;
+    background: #C4DAD2;
+}
+
+/* Recent requests preview */
+.ngo-card-requests {
+    border-top: 1px solid #eef3f1;
+    padding-top: 0.8rem;
+}
+
+.ngo-card-requests-label {
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: #6A9C89;
+    margin: 0 0 0.5rem;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+}
+
+.ngo-mini-request {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.35rem 0;
+    font-size: 0.88rem;
+    color: #16423C;
+}
+
+.urgency-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+
+.urgency-dot.urgency-high { background: #ef4444; }
+.urgency-dot.urgency-medium { background: #f59e0b; }
+.urgency-dot.urgency-low { background: #22c55e; }
+
+.mini-req-title {
+    flex: 1;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-weight: 500;
+}
+
+.mini-req-qty {
+    font-size: 0.8rem;
+    color: #6A9C89;
+    font-weight: 500;
+    background: rgba(106, 156, 137, 0.1);
+    padding: 0.15rem 0.5rem;
+    border-radius: 8px;
+    white-space: nowrap;
+}
+
+/* NGO Card Footer */
+.ngo-card-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border-top: 1px solid #eef3f1;
+    padding-top: 0.8rem;
+    margin-top: auto;
+}
+
+.ngo-card-joined {
+    font-size: 0.8rem;
+    color: #a0bab3;
+}
+
+.ngo-view-btn {
+    background: none;
+    border: none;
+    color: #16423C;
+    font-weight: 600;
+    font-size: 0.88rem;
+    cursor: pointer;
+    padding: 0.4rem 0.8rem;
+    border-radius: 8px;
+    transition: all 0.2s ease;
+    font-family: inherit;
+}
+
+.ngo-view-btn:hover {
+    background: rgba(106, 156, 137, 0.12);
+    color: #6A9C89;
+}
+
+/* Loading / Empty */
+.ngo-loading {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 4rem 1rem;
+    color: #6A9C89;
+    gap: 1rem;
+}
+
+.ngo-spinner {
+    width: 40px;
+    height: 40px;
+    border: 4px solid #C4DAD2;
+    border-top-color: #16423C;
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
+.ngo-empty-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 4rem 1rem;
+    color: #6A9C89;
+    text-align: center;
+}
+
+.ngo-empty-state h3 {
+    margin: 0.8rem 0 0.3rem;
+    color: #16423C;
+}
+
+.ngo-empty-state p {
+    margin: 0;
+}
+
+/* ─── NGO Detail Modal ─── */
+.ngo-modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(22, 66, 60, 0.45);
+    backdrop-filter: blur(4px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+    animation: overlayFadeIn 0.25s ease;
+}
+
+@keyframes overlayFadeIn {
+    from { opacity: 0; }
+    to   { opacity: 1; }
+}
+
+.ngo-modal {
+    background: #fff;
+    border-radius: 22px;
+    width: 90%;
+    max-width: 620px;
+    max-height: 85vh;
+    overflow-y: auto;
+    padding: 2rem;
+    position: relative;
+    animation: modalSlideIn 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: 0 25px 60px rgba(22, 66, 60, 0.2);
+}
+
+@keyframes modalSlideIn {
+    from { opacity: 0; transform: translateY(30px) scale(0.97); }
+    to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.ngo-modal::-webkit-scrollbar {
+    width: 6px;
+}
+
+.ngo-modal::-webkit-scrollbar-thumb {
+    background: #C4DAD2;
+    border-radius: 10px;
+}
+
+.ngo-modal-close {
+    position: absolute;
+    top: 1rem;
+    right: 1rem;
+    background: #E9EFEC;
+    border: none;
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    font-size: 1.1rem;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s ease;
+    color: #16423C;
+}
+
+.ngo-modal-close:hover {
+    background: #C4DAD2;
+}
+
+.ngo-modal-header {
+    display: flex;
+    align-items: center;
+    gap: 1.2rem;
+    margin-bottom: 1.5rem;
+}
+
+.ngo-avatar-xl {
+    width: 64px;
+    height: 64px;
+    border-radius: 18px;
+    background: linear-gradient(135deg, #16423C, #6A9C89);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 2rem;
+    font-weight: 700;
+    color: #fff;
+    flex-shrink: 0;
+}
+
+.ngo-modal-header h2 {
+    margin: 0;
+    font-size: 1.5rem;
+    color: #16423C;
+}
+
+.ngo-modal-meta {
+    margin: 0.25rem 0 0;
+    font-size: 0.9rem;
+    color: #6A9C89;
+}
+
+.ngo-modal-stats {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+}
+
+.modal-stat-card {
+    text-align: center;
+    background: #f7faf9;
+    border-radius: 14px;
+    padding: 1rem 0.5rem;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.3rem;
+}
+
+.modal-stat-icon {
+    font-size: 1.3rem;
+}
+
+.modal-stat-val {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: #16423C;
+}
+
+.modal-stat-lbl {
+    font-size: 0.78rem;
+    color: #6A9C89;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+}
+
+.ngo-modal-requests h3 {
+    margin: 0 0 1rem;
+    font-size: 1.1rem;
+    color: #16423C;
+    padding-bottom: 0.5rem;
+    border-bottom: 1px solid #eef3f1;
+}
+
+.modal-request-card {
+    background: #f7faf9;
+    border: 1px solid #eef3f1;
+    border-radius: 14px;
+    padding: 1.2rem;
+    margin-bottom: 1rem;
+    transition: border-color 0.2s ease;
+}
+
+.modal-request-card:hover {
+    border-color: #C4DAD2;
+}
+
+.modal-req-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 0.6rem;
+}
+
+.modal-req-top h4 {
+    margin: 0;
+    font-size: 1.05rem;
+    color: #16423C;
+}
+
+.urgency-badge {
+    font-size: 0.78rem;
+    font-weight: 600;
+    padding: 0.25rem 0.7rem;
+    border-radius: 12px;
+    white-space: nowrap;
+}
+
+.urgency-badge.urgency-high {
+    background: rgba(239, 68, 68, 0.1);
+    color: #dc2626;
+}
+
+.urgency-badge.urgency-medium {
+    background: rgba(245, 158, 11, 0.1);
+    color: #d97706;
+}
+
+.urgency-badge.urgency-low {
+    background: rgba(34, 197, 94, 0.1);
+    color: #15803d;
+}
+
+.modal-request-card p {
+    margin: 0.3rem 0;
+    font-size: 0.9rem;
+    color: #6A9C89;
+}
+
+.modal-request-card strong {
+    color: #16423C;
+}
+
+/* ════════════════════════════════════════════
+   NEAREST NGO — Location Styles
+   ════════════════════════════════════════════ */
+
+/* Nearest filter chip */
+.filter-chip.nearest-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+}
+
+.filter-chip.nearest-chip.active {
+    background: linear-gradient(135deg, #16423C, #2d6a5e);
+    border-color: #16423C;
+}
+
+/* Tiny spinner inside the Nearest button */
+.location-spinner {
+    display: inline-block;
+    width: 14px;
+    height: 14px;
+    border: 2px solid rgba(255, 255, 255, 0.3);
+    border-top-color: #fff;
+    border-radius: 50%;
+    animation: spin 0.7s linear infinite;
+    vertical-align: middle;
+}
+
+.filter-chip:not(.active) .location-spinner {
+    border-color: rgba(22, 66, 60, 0.2);
+    border-top-color: #16423C;
+}
+
+/* Location active indicator */
+.location-active-badge {
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: #15803d;
+    background: rgba(34, 197, 94, 0.1);
+    padding: 0.3rem 0.8rem;
+    border-radius: 20px;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    animation: fadeIn 0.3s ease;
+}
+
+/* Location denied banner */
+.location-denied-banner {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    background: rgba(245, 158, 11, 0.08);
+    border: 1px solid rgba(245, 158, 11, 0.2);
+    border-radius: 14px;
+    padding: 1rem 1.5rem;
+    margin-bottom: 1.5rem;
+    animation: fadeIn 0.3s ease;
+}
+
+.location-denied-banner span {
+    font-size: 1.5rem;
+    flex-shrink: 0;
+}
+
+.location-denied-banner p {
+    flex: 1;
+    margin: 0;
+    font-size: 0.9rem;
+    color: #92400e;
+    line-height: 1.4;
+}
+
+.location-denied-banner button {
+    padding: 0.5rem 1rem;
+    border-radius: 10px;
+    border: 1px solid rgba(245, 158, 11, 0.3);
+    background: rgba(245, 158, 11, 0.1);
+    color: #92400e;
+    font-weight: 600;
+    font-size: 0.85rem;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    white-space: nowrap;
+    font-family: inherit;
+}
+
+.location-denied-banner button:hover {
+    background: rgba(245, 158, 11, 0.2);
+}
+
+/* Distance badge on NGO cards */
+.distance-badge {
+    font-size: 0.78rem;
+    font-weight: 700;
+    padding: 0.3rem 0.7rem;
+    border-radius: 20px;
+    background: linear-gradient(135deg, rgba(22, 66, 60, 0.1), rgba(106, 156, 137, 0.15));
+    color: #16423C;
+    white-space: nowrap;
+    flex-shrink: 0;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.2rem;
+    border: 1px solid rgba(106, 156, 137, 0.2);
+}
+
+/* Distance meta in modal */
+.distance-meta {
+    color: #16423C !important;
+    font-weight: 600 !important;
+    background: linear-gradient(135deg, rgba(22, 66, 60, 0.06), rgba(106, 156, 137, 0.08));
+    padding: 0.35rem 0.8rem;
+    border-radius: 10px;
+    display: inline-block;
+    margin-top: 0.4rem !important;
+    font-size: 0.88rem !important;
+}

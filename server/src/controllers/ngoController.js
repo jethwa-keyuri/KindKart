@@ -1,10 +1,54 @@
 import { db } from "../db/db.js";
 import { donations, users, ngoRequests } from "../db/schema.js";
-import { eq, desc, count, and } from "drizzle-orm";
+import { eq, desc, count, and, gte, lte, ilike, or } from "drizzle-orm";
+import { writeLog } from "./fulfillmentController.js";
 
-// GET all donor donations (visible to NGOs)
+// GET all donor donations (visible to NGOs) — with filtering
 export const getDonorRequests = async (req, res) => {
   try {
+    const { search, foodType, status, timeWindow, location } = req.query;
+    const conditions = [];
+
+    // Food type filter
+    if (foodType) {
+      conditions.push(ilike(donations.foodType, `%${foodType}%`));
+    }
+
+    // Status filter
+    if (status) {
+      conditions.push(eq(donations.status, status));
+    }
+
+    // Time window filter (based on expiry)
+    const now = new Date();
+    if (timeWindow === 'active') {
+      conditions.push(gte(donations.expiryTime, now));
+    } else if (timeWindow === 'expiring') {
+      const in24h = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+      conditions.push(gte(donations.expiryTime, now));
+      conditions.push(lte(donations.expiryTime, in24h));
+    } else if (timeWindow === 'expired') {
+      conditions.push(lte(donations.expiryTime, now));
+    }
+
+    // Location filter
+    if (location) {
+      conditions.push(ilike(donations.location, `%${location}%`));
+    }
+
+    // Search filter (food type or description or donor name)
+    if (search) {
+      conditions.push(
+        or(
+          ilike(donations.foodType, `%${search}%`),
+          ilike(donations.description, `%${search}%`),
+          ilike(donations.location, `%${search}%`)
+        )
+      );
+    }
+
+    const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
+
     const list = await db
       .select({
         id: donations.id,
@@ -19,6 +63,7 @@ export const getDonorRequests = async (req, res) => {
       })
       .from(donations)
       .leftJoin(users, eq(donations.donorId, users.id))
+      .where(whereClause)
       .orderBy(desc(donations.createdAt));
 
     return res.status(200).json({ requests: list });
@@ -46,6 +91,13 @@ export const acceptDonation = async (req, res) => {
       .set({ status: "ACCEPTED" })
       .where(eq(donations.id, donationId))
       .returning();
+
+    await writeLog({
+      donationId,
+      action: "ACCEPTED",
+      performedBy: req.user.id,
+      notes: `Donation accepted by NGO.`,
+    });
 
     return res.status(200).json({
       message: "Donation accepted successfully.",
@@ -76,6 +128,13 @@ export const denyDonation = async (req, res) => {
       .where(eq(donations.id, donationId))
       .returning();
 
+    await writeLog({
+      donationId,
+      action: "DENIED",
+      performedBy: req.user.id,
+      notes: `Donation denied by NGO.`,
+    });
+
     return res.status(200).json({
       message: "Donation denied.",
       donation: updated,
@@ -100,6 +159,13 @@ export const markPickedUp = async (req, res) => {
       return res.status(404).json({ message: "Donation not found." });
     }
 
+    await writeLog({
+      donationId,
+      action: "PICKED_UP",
+      performedBy: req.user.id,
+      notes: `Donation marked as picked up by NGO.`,
+    });
+
     return res.status(200).json({
       message: "Donation marked as picked up.",
       donation: updated,
@@ -123,6 +189,13 @@ export const markDonationCompleted = async (req, res) => {
     if (!updated) {
       return res.status(404).json({ message: "Donation not found." });
     }
+
+    await writeLog({
+      donationId,
+      action: "COMPLETED",
+      performedBy: req.user.id,
+      notes: `Donation marked as completed by NGO.`,
+    });
 
     return res.status(200).json({
       message: "Donation completed.",
@@ -180,6 +253,7 @@ export const getMyNgoRequests = async (req, res) => {
 // GET — NGO dashboard stats
 export const getNgoDashboardStats = async (req, res) => {
   try {
+    
     const ngoId = req.user.id;
 
     // Total requests posted by this NGO

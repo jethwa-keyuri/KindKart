@@ -1,4 +1,4 @@
-import {pgTable,serial,text,timestamp,integer,pgEnum,} from "drizzle-orm/pg-core";
+import {pgTable,serial,text,timestamp,integer,pgEnum,doublePrecision,} from "drizzle-orm/pg-core";
 
 export const roleEnum = pgEnum("role", ["DONOR", "NGO", "ADMIN"]);
 
@@ -23,6 +23,9 @@ export const users = pgTable("users", {
 
   phone: text("phone"),
   address: text("address"),
+
+  latitude: doublePrecision("latitude"),
+  longitude: doublePrecision("longitude"),
 
   createdAt: timestamp("created_at").defaultNow(),
 });
@@ -94,3 +97,13 @@ export const ngoRequests = pgTable("ngo_requests", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
+// Fulfillment Logs — tracks each status transition of a donation
+export const fulfillmentLogs = pgTable("fulfillment_logs", {
+  id: serial("id").primaryKey(),
+  donationId: integer("donation_id").references(() => donations.id),
+  ngoRequestId: integer("ngo_request_id").references(() => ngoRequests.id),
+  action: text("action").notNull(),         // e.g. "CREATED", "ACCEPTED", "PICKED_UP", "COMPLETED"
+  performedBy: integer("performed_by").references(() => users.id),
+  notes: text("notes"),
+  createdAt: timestamp("created_at").defaultNow(),
+});

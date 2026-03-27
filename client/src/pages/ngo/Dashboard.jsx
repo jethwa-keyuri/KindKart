@@ -57,7 +57,7 @@ function NgoDashboard() {
                 phone: userData.phone || "",
                 address: userData.address || "",
             });
-        } catch(e) {
+        } catch (e) {
             console.error("Failed to fetch profile", e);
         }
     };
@@ -109,7 +109,7 @@ function NgoDashboard() {
             }));
             alert("Profile updated successfully!");
             setIsEditingProfile(false);
-        } catch(e) {
+        } catch (e) {
             console.error(e);
             alert("Failed to update profile");
         }
@@ -316,16 +316,16 @@ function NgoDashboard() {
                     </h2>
                     <nav className="menu">
                         <a className={activeTab === 'dashboard' ? 'active' : ''} onClick={() => setActiveTab('dashboard')}>
-                             Dashboard
+                            Dashboard
                         </a>
                         <a className={activeTab === 'createrequest' ? 'active' : ''} onClick={() => setActiveTab('createrequest')}>
-                             Create Request
+                            Create Request
                         </a>
                         <a className={activeTab === 'myrequests' ? 'active' : ''} onClick={() => setActiveTab('myrequests')}>
-                             My Requests
+                            My Requests
                         </a>
                         <a className={activeTab === 'requests' ? 'active' : ''} onClick={() => setActiveTab('requests')}>
-                             Donor Offers
+                            Donor Offers
                         </a>
                     </nav>
                 </div>
@@ -492,7 +492,7 @@ function NgoDashboard() {
                             </div>
                             <div className="card-list">
                                 {myRequests.length === 0 ? (
-                                    <p className="placeholder-text" style={{marginTop: '1rem'}}>You haven't posted any requests yet.</p>
+                                    <p className="placeholder-text" style={{ marginTop: '1rem' }}>You haven't posted any requests yet.</p>
                                 ) : (
                                     myRequests.map(req => (
                                         <div className="item-card" key={req.id}>
@@ -514,7 +514,7 @@ function NgoDashboard() {
                         <div className="tab-content fade-in">
                             <h2>Available Donor Offers</h2>
                             {incomingRequests.length === 0 ? (
-                                <p className="placeholder-text" style={{marginTop: '1rem'}}>No incoming donations available at the moment.</p>
+                                <p className="placeholder-text" style={{ marginTop: '1rem' }}>No incoming donations available at the moment.</p>
                             ) : (
                                 <div className="card-list">
                                     {incomingRequests.map(req => (
@@ -585,8 +585,8 @@ function NgoDashboard() {
                                             <input type="text" name="name" value={profileData.name} onChange={handleProfileChange} />
                                         </div>
                                         <div className="form-group">
-                                            <label>Role <span style={{fontSize:'0.8rem',color:'#999'}}>(cannot be changed)</span></label>
-                                            <input type="text" value={profileData.role} readOnly style={{backgroundColor: '#C4DAD2', cursor: 'not-allowed', color: '#6A9C89'}} />
+                                            <label>Role <span style={{ fontSize: '0.8rem', color: '#999' }}>(cannot be changed)</span></label>
+                                            <input type="text" value={profileData.role} readOnly style={{ backgroundColor: '#C4DAD2', cursor: 'not-allowed', color: '#6A9C89' }} />
                                         </div>
                                         <div className="form-group">
                                             <label>Phone Number</label>
@@ -597,12 +597,12 @@ function NgoDashboard() {
                                             <textarea name="address" value={profileData.address} onChange={handleProfileChange}></textarea>
                                         </div>
                                         <div className="form-group">
-                                            <label>Email Address <span style={{fontSize:'0.8rem',color:'#999'}}>(cannot be changed)</span></label>
-                                            <input type="email" value={profileData.email} readOnly style={{backgroundColor: '#C4DAD2', cursor: 'not-allowed', color: '#6A9C89'}} />
+                                            <label>Email Address <span style={{ fontSize: '0.8rem', color: '#999' }}>(cannot be changed)</span></label>
+                                            <input type="email" value={profileData.email} readOnly style={{ backgroundColor: '#C4DAD2', cursor: 'not-allowed', color: '#6A9C89' }} />
                                         </div>
                                         <div className="form-group">
-                                            <label>Password <span style={{fontSize:'0.8rem',color:'#999'}}>(cannot be changed)</span></label>
-                                            <input type="password" value="••••••••" readOnly style={{backgroundColor: '#C4DAD2', cursor: 'not-allowed', color: '#6A9C89'}} />
+                                            <label>Password <span style={{ fontSize: '0.8rem', color: '#999' }}>(cannot be changed)</span></label>
+                                            <input type="password" value="••••••••" readOnly style={{ backgroundColor: '#C4DAD2', cursor: 'not-allowed', color: '#6A9C89' }} />
                                         </div>
                                         <div style={{ display: 'flex', gap: '1rem', marginTop: '1rem' }}>
                                             <button type="button" className="action-btn primary" onClick={handleProfileSave}>Save Changes</button>
