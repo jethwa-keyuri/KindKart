@@ -81,3 +81,4 @@ export const ratings = pgTable("ratings", {
 
   createdAt: timestamp("created_at").defaultNow(),
 });
+

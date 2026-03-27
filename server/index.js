@@ -1,15 +1,30 @@
-import express from 'express'
+import 'dotenv/config';
+import express from 'express';
+import cors from 'cors';
 
-const app=express()
-const port=8000
+import authRoutes from './src/routes/authRoutes.js';
+import protectedRoutes from './src/routes/protectedRoutes.js';
 
-app.use(express.json())//enables middleware that enables express to understand a json
+const app = express();
+const port = process.env.PORT || 8000;
 
-app.get('/',(req,res)=>{
-    res.send("Hello from express server")
-})
+app.use(cors());
+app.use(express.json());
 
-app.listen(port,()=>{
-    console.log(`server is running at http://localhost:${port}`);
-    
-})
+// Health check
+app.get('/', (req, res) => {
+  res.json({ message: 'KindKart API is running 🚀' });
+});
+
+// Routes
+app.use('/api/auth', authRoutes);
+app.use('/api/protected', protectedRoutes);
+
+// 404 handler
+app.use((req, res) => {
+  res.status(404).json({ message: 'Route not found.' });
+});
+
+app.listen(port, () => {
+  console.log(`Server is running at http://localhost:${port}`);
+});
