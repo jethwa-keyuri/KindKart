@@ -64,6 +64,22 @@ const Register = () => {
                     onChange={handleChange} 
                     required 
                 />
+                <input 
+                    type="email" 
+                    name="email" 
+                    placeholder="Email" 
+                    value={formData.email} 
+                    onChange={handleChange} 
+                    required 
+                />
+                <input 
+                    type="password" 
+                    name="password" 
+                    placeholder="Password" 
+                    value={formData.password} 
+                    onChange={handleChange} 
+                    required 
+                />
                 
                 {/* Radio buttons for Role */}
                 <div className="radio-group" style={{ display: 'flex', gap: '2rem', padding: '0.5rem 0.2rem', color: '#475569' }}>
@@ -119,22 +135,6 @@ const Register = () => {
                     name="address" 
                     placeholder="Address" 
                     value={formData.address} 
-                    onChange={handleChange} 
-                    required 
-                />
-                <input 
-                    type="email" 
-                    name="email" 
-                    placeholder="Email" 
-                    value={formData.email} 
-                    onChange={handleChange} 
-                    required 
-                />
-                <input 
-                    type="password" 
-                    name="password" 
-                    placeholder="Password" 
-                    value={formData.password} 
                     onChange={handleChange} 
                     required 
                 />

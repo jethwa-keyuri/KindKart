@@ -49,7 +49,7 @@ function NgoDashboard() {
                              Dashboard
                         </a>
                         {/*<a className={activeTab === 'campaigns' ? 'active' : ''} onClick={() => setActiveTab('campaigns')}>
-                            <i className="icon">📢</i> Active Campaigns
+                             Active Campaigns
                         </a>*/}
                         <a className={activeTab === 'donations' ? 'active' : ''} onClick={() => setActiveTab('donations')}>
                              Received Donations

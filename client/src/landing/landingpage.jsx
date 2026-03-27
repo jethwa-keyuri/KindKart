@@ -42,7 +42,7 @@ const LandingPage = () => {
                         <span className="block text-transparent bg-clip-text bg-gradient-to-r from-emerald-500 to-teal-500">surplus and scarcity.</span>
                     </h1>
                     <p className="mt-4 max-w-2xl mx-auto text-xl md:text-2xl text-slate-600 mb-10 leading-relaxed">
-                        KindKart connects local food donors with nearby NGOs in real-time, ensuring that extra meals reach those who need them most before time runs out.
+                        KindKart connects food donors with nearby NGOs in real-time, ensuring that extra meals reach those who need them most before time runs out.
                     </p>
                     <div className="flex flex-col sm:flex-row justify-center gap-4 sm:gap-6 items-center">
                         <button 
