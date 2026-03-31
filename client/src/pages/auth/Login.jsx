@@ -47,7 +47,7 @@ const Login = () => {
         <div className="auth-page">
             <div className="auth-brand">
                 <div className="auth-brand-icon">🌿</div>
-                <div className="auth-brand-logo">Food<span>Bridge</span></div>
+                <div className="auth-brand-logo">Kind<span>Kart</span></div>
                 <p className="auth-brand-tagline">
                     Connecting generous donors with NGOs to reduce food waste and fight hunger.
                 </p>

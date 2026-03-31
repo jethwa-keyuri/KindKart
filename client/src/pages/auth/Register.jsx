@@ -45,7 +45,7 @@ const Register = () => {
         <div className="auth-page">
             <div className="auth-brand">
                 <div className="auth-brand-icon">🌿</div>
-                <div className="auth-brand-logo">Food<span>Bridge</span></div>
+                <div className="auth-brand-logo">Kind<span>Kart</span></div>
                 <p className="auth-brand-tagline">
                     Join our community of donors and NGOs working together to end food waste.
                 </p>
