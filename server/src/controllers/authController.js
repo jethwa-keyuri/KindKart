@@ -8,7 +8,7 @@ export const register = async (req, res) => {
   try {
     const { name, email, password, role, phone, address } = req.body;
     //console.log(name);
-    
+    // this is a simple validation, you can enhance it as needed
     // Check if user already exists
     const existing = await db.select().from(users).where(eq(users.email, email));
     if (existing.length > 0) {
